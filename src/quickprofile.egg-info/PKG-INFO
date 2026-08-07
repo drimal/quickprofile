@@ -1,0 +1,84 @@
+Metadata-Version: 2.4
+Name: quickprofile
+Version: 0.1.0
+Summary: A tiny time + real-memory (RSS) profiler for wrapping any block of code, with a background sampler to catch transient peaks.
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: psutil>=5.9
+Provides-Extra: dev
+Requires-Dist: pytest>=8.0; extra == "dev"
+
+# quickprofile
+
+A tiny time + real-memory profiler for wrapping any block of code.
+
+Measures process RSS (via `psutil`), not `tracemalloc` — RSS captures native
+allocations (numpy, PDF/image rendering libraries, subprocess buffers, C
+extensions in general) that `tracemalloc` can't see, since it only tracks
+Python's own allocator. A background thread samples RSS during the block so
+a transient spike is caught even if the memory is freed before the block
+returns — a plain before/after check would miss that.
+
+## Install
+
+```bash
+pip install -e /path/to/quickprofile
+```
+
+Or add as a dependency in another package's `pyproject.toml`:
+
+```toml
+dependencies = [
+    "quickprofile @ file:///path/to/quickprofile",
+]
+```
+
+## Usage
+
+Context manager, for a single block:
+
+```python
+from quickprofile import profile
+
+with profile("load_dataset") as holder:
+    df = pd.read_csv("huge_file.csv")
+print(holder.result)
+# [load_dataset] 2.31s | RSS 120.4 -> 340.1 MB (peak 512.8 MB, delta +219.7 MB)
+```
+
+Decorator, for a whole function:
+
+```python
+from quickprofile import profiled
+
+@profiled()
+def load_dataset(path):
+    return pd.read_csv(path)
+
+load_dataset("huge_file.csv")
+print(load_dataset.last_result)
+```
+
+Recorder, for accumulating results across a loop or batch and getting a summary table:
+
+```python
+from quickprofile import ProfileRecorder
+
+recorder = ProfileRecorder()
+for path in file_paths:
+    with recorder.track(path.name):
+        process(path)
+print(recorder.summary())
+```
+
+```
+| Label       | Duration (s) | RSS delta (MB) | RSS peak (MB) |
+|-------------|--------------|-----------------|----------------|
+| file_a.csv  | 1.20         | +45.0           | 310.2          |
+| file_b.csv  | 0.85         | +12.1           | 290.4          |
+
+Total duration: 2.05s | Max RSS peak observed: 310.2 MB
+```
+
+`ProfileResult` fields: `label`, `duration_seconds`, `rss_start_mb`,
+`rss_end_mb`, `rss_peak_mb`, and the computed property `rss_delta_mb`.

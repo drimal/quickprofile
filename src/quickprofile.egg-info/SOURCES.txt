@@ -1,0 +1,9 @@
+README.md
+pyproject.toml
+src/quickprofile/__init__.py
+src/quickprofile/core.py
+src/quickprofile.egg-info/PKG-INFO
+src/quickprofile.egg-info/SOURCES.txt
+src/quickprofile.egg-info/dependency_links.txt
+src/quickprofile.egg-info/requires.txt
+src/quickprofile.egg-info/top_level.txt
